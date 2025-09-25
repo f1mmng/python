@@ -21,6 +21,8 @@ async def fetch_available_bikes(station_id, url="https://www.velo-antwerpen.be/a
     browser = None
     try:
         executable_path = find_chromium()
+        possible_binaries = ["google-chrome-stable", "chromium", "chromium-browser", "google-chrome"]
+
 
         browser = await launch(
             headless=True,
@@ -76,3 +78,4 @@ if __name__ == "__main__":
         print(f"Available bikes for station {station_id_to_find}: {available_bikes}")
     else:
         print(f"Could not retrieve available bikes for station {station_id_to_find}.")
+

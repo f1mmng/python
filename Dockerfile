@@ -1,6 +1,5 @@
-# Start with a base image that has Python and a Debian-based OS.
-# This ensures we have 'apt-get' to install system dependencies.
-FROM python:3.11-slim-buster
+# Use a newer, supported Debian-based image. Bullseye is a good choice.
+FROM python:3.11-slim-bullseye
 
 # Install Playwright's required system dependencies.
 # The `playwright install-deps` command provides the canonical list.

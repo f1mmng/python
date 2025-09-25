@@ -1,1 +1,3 @@
-chromium
+wget
+gnupg
+google-chrome-stable

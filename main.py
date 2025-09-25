@@ -1,6 +1,7 @@
 import asyncio
 from playwright.async_api import async_playwright
 import json
+import datetime
 
 async def fetch_available_bikes(station_id, url="https://www.velo-antwerpen.be/api/map/stationStatus"):
     """
@@ -8,9 +9,11 @@ async def fetch_available_bikes(station_id, url="https://www.velo-antwerpen.be/a
     """
     async with async_playwright() as p:
         try:
+            # We are using headless=True for background tasks
             browser = await p.chromium.launch(headless=True)
             page = await browser.new_page()
 
+            # Set headers to mimic a regular browser
             await page.set_extra_http_headers({
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
                 "Accept": "application/json, text/plain, */*",
@@ -19,6 +22,7 @@ async def fetch_available_bikes(station_id, url="https://www.velo-antwerpen.be/a
                 "Connection": "keep-alive"
             })
 
+            # Go to the API endpoint and get the JSON data
             response = await page.goto(url, wait_until="domcontentloaded")
             
             if response.status != 200:
@@ -28,7 +32,6 @@ async def fetch_available_bikes(station_id, url="https://www.velo-antwerpen.be/a
             station_data = await response.json()
 
             for station in station_data:
-                # Compare string ID to string ID directly
                 if station.get("id") == station_id:
                     return station.get("availability", {}).get("bikes")
             
@@ -36,17 +39,32 @@ async def fetch_available_bikes(station_id, url="https://www.velo-antwerpen.be/a
             return None
 
         except Exception as e:
-            print(f"An error occurred: {e}")
+            print(f"An error occurred during data fetching: {e}")
             return None
         finally:
             if 'browser' in locals() and browser:
                 await browser.close()
 
-if __name__ == "__main__":
-    station_id_to_find = "235"  # This will now correctly match the string "235"
-    bikes = asyncio.run(fetch_available_bikes(station_id_to_find))
+async def main_loop():
+    """
+    The main loop to fetch bike data every 30 minutes.
+    """
+    station_id_to_find = "235"
+    while True:
+        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        print(f"\n[{timestamp}] Fetching data for station {station_id_to_find}...")
+        
+        bikes = await fetch_available_bikes(station_id_to_find)
 
-    if bikes is not None:
-        print(f"Available bikes for station {station_id_to_find}: {bikes}")
-    else:
-        print(f"Could not retrieve available bikes for station {station_id_to_find}.")
+        if bikes is not None:
+            print(f"Available bikes for station {station_id_to_find}: {bikes}")
+        else:
+            print(f"Could not retrieve available bikes for station {station_id_to_find}.")
+        
+        # Wait for 30 minutes (30 minutes * 60 seconds/minute)
+        print("Waiting 30 minutes before next check...")
+        await asyncio.sleep(30 * 60)
+
+if __name__ == "__main__":
+    # Use asyncio.run() to start the main loop
+    asyncio.run(main_loop())

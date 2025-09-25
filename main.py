@@ -17,7 +17,7 @@ async def fetch_available_bikes(station_id, url="https://www.velo-antwerpen.be/a
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
                 "Accept": "application/json, text/plain, */*",
                 "Accept-Language": "en-US,en;q=0.9",
-                "Referer": "https://www.velo-antwerpen.be/",
+                "Referer": "https://www.velo-antwerpen.be/nl/fiets-vinden/",
                 "Connection": "keep-alive"
             })
 
@@ -52,3 +52,4 @@ if __name__ == "__main__":
         print(f"Available bikes for station {station_id_to_find}: {bikes}")
     else:
         print(f"Could not retrieve available bikes for station {station_id_to_find}.")
+

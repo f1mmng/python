@@ -2,27 +2,17 @@ import asyncio
 from pyppeteer import launch
 import json
 from bs4 import BeautifulSoup
-import shutil
-
-
-def find_chromium():
-    """Find the installed Chromium binary on Railway."""
-    candidates = ["chromium", "chromium-browser", "google-chrome", "google-chrome-stable"]
-    for name in candidates:
-        path = shutil.which(name)
-        if path:
-            return path
-    raise FileNotFoundError("No Chromium executable found. Did you add it to apt.txt?")
-
 
 async def fetch_available_bikes(station_id, url="https://www.velo-antwerpen.be/api/map/stationStatus"):
+    """
+    Fetches the number of available bikes for a given station ID.
+    """
     browser = None
     try:
-        chromium_path = find_chromium()
         browser = await launch(
             headless=True,
             args=['--no-sandbox', '--disable-setuid-sandbox'],
-            executablePath=chromium_path
+            executablePath='/usr/bin/chromium'  # Direct path to the Chromium executable
         )
         page = await browser.newPage()
 

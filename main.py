@@ -1,78 +1,75 @@
 import asyncio
+# import nest_asyncio # REMOVE this, it's for Colab only
+from pyppeteer import launch
 import json
-import os
-from datetime import datetime
-from playwright.async_api import async_playwright
+from bs4 import BeautifulSoup
 
-# Define the station ID you want to track
-# Use environment variables for configuration flexibility in Railway
-STATION_ID_TO_FIND = os.environ.get('STATION_ID', '235')
-LOG_PREFIX = "[VELO_DATA]" # Used to easily filter data points in Railway logs
-
-async def fetch_available_bikes_playwright(station_id):
+# Define the async function as is (no changes needed inside)
+async def fetch_available_bikes(station_id, url="https://www.velo-antwerpen.be/api/map/stationStatus"):
+    # ... (Your function body remains the same)
     """
-    Fetches the number of available bikes and slots for a specific station using Playwright.
-    Returns a tuple: (bikes, slots) or None if not found.
+    Fetches the number of available bikes for a specific station using Pyppeteer.
+    ...
     """
     browser = None
     try:
-        async with async_playwright() as p:
-            # Set arguments for better compatibility in various container environments
-            browser = await p.chromium.launch(
-                headless=True, 
-                args=['--no-sandbox', '--disable-setuid-sandbox']
-            )
-            page = await browser.newPage()
-
-            # Navigate to the Velo Antwerpen map page
-            await page.goto("https://www.velo-antwerpen.be/nl/fiets-vinden", wait_until="domcontentloaded")
-
-            # Wait for the necessary data to load (The station markers should confirm the map is ready)
-            # You might need to adjust this selector if the site changes.
-            await page.wait_for_selector('div.station-marker', timeout=15000)
-
-            # Extract station data from the page's initial state object
-            stations_json = await page.evaluate("""
-                () => {
-                    try {
-                        // Velo Antwerpen often stores data in a window variable like __INITIAL_STATE__
-                        return JSON.stringify(window.__INITIAL_STATE__.stations);
-                    } catch(e) {
-                        return null;
-                    }
-                }
-            """)
-
-            if not stations_json:
-                print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] ERROR: Could not extract station JSON from page.")
+        # Crucial for Railway/headless environments: use 'executablePath'
+        # The 'args' are also critical for running in a non-root environment
+        # Pyppeteer attempts to find Chromium, but specifying the path is safer.
+        # However, for Railway, pyppeteer's auto-download may work if dependencies are met.
+        # We will focus on the args first:
+        browser = await launch(
+            headless=True,
+            args=['--no-sandbox', '--disable-setuid-sandbox']
+        )
+        page = await browser.newPage()
+        # ... (Rest of your original code remains the same)
+        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36')
+        await page.goto(url, {'waitUntil': 'domcontentloaded'})
+        await asyncio.sleep(15)
+        content = await page.content()
+        soup = BeautifulSoup(content, 'html.parser')
+        pre_tag = soup.find('pre')
+        station_data = None
+        if pre_tag:
+            json_string = pre_tag.get_text()
+            try:
+                station_data = json.loads(json_string)
+            except json.JSONDecodeError:
+                print("Error decoding extracted JSON string.")
                 return None
+        else:
+            print("Could not find <pre> tag with JSON data in page content.")
+            return None
 
-            stations = json.loads(stations_json)
-            # Find the specific station
-            station = next((s for s in stations if s['id'] == station_id), None)
+        available_bikes = None
+        if station_data:
+            for station in station_data:
+                if station.get('id') == station_id:
+                    availability = station.get('availability')
+                    if availability and isinstance(availability, dict):
+                        available_bikes = availability.get('bikes')
+                    break
 
-            if not station:
-                print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] ERROR: Station {station_id} not found.")
-                return None
-
-            bikes = station['availability']['bikes']
-            slots = station['availability']['slots']
-            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-            # Log the data line to stdout (Railway logs) for persistence
-            # Format: TIMESTAMP,STATION_ID,BIKES,SLOTS
-            print(f"{LOG_PREFIX} {timestamp},{station_id},{bikes},{slots}")
-
-            return bikes, slots
+        return available_bikes
 
     except Exception as e:
-        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] FATAL ERROR during data fetching: {e}")
+        print(f"An error occurred during data fetching: {e}")
         return None
     finally:
         if browser:
             await browser.close()
 
-
+# Define the main execution block
 async def main():
-    """Main function to orchestrate the data fetching."""
-    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] INFO: Starting data fetch for station {STATION_ID_
+    station_id_to_find = '235'
+    available_bikes_235 = await fetch_available_bikes(station_id_to_find)
+
+    if available_bikes_235 is not None:
+        print(f"Available bikes for station {station_id_to_find}: {available_bikes_235}")
+    else:
+        print(f"Could not retrieve available bikes for station {station_id_to_find}.")
+
+# Standard way to run the async main function
+if __name__ == "__main__":
+    asyncio.run(main())

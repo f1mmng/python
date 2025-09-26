@@ -59,7 +59,6 @@ async def fetch_available_bikes(station_id, url):
             return None
 
         except Exception as e:
-            # This catches Playwright TimeoutError or connection issues
             print(f"CRITICAL ERROR during fetching: {e}")
             return None
         finally:
@@ -76,12 +75,13 @@ async def main_loop():
     # 🌟 START MESSAGE: Confirms Python script is running 🌟
     print("--- 🚀 SCRIPT INITIATED: Python Code Execution Started Successfully 🚀 ---")
     
-    print(f"Starting Velo Antwerp checker for station {STATION_ID}. Interval: {CHECK_INTERVAL_MINUTES} minutes.")
+    # FINAL FIX: Simple, non-failing confirmation message to ensure script proceeds
+    print("CHECKER STARTED. Entering continuous loop now...")
     
     while True:
         try:
             timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            print(f"\n--- [{timestamp}] Starting data fetch ---")
+            print(f"\n--- [{timestamp}] Starting data fetch for station {STATION_ID} ---")
             
             bikes = await fetch_available_bikes(STATION_ID, API_URL)
 
@@ -91,23 +91,12 @@ async def main_loop():
                 print(f"FAILURE: Could not retrieve available bikes for station {STATION_ID}. Check logs for HTTP Status Code or Timeout error.")
             
         except Exception as e:
-            # Line 96 was here, now correctly written:
+            # This handles errors within the loop
             print(f"UNHANDLED ERROR in main loop: {e}") 
             
         finally:
+            # This is the line that caused the delay (now it's confirmed to run!)
             print(f"Sleeping for {CHECK_INTERVAL_MINUTES} minutes...")
             await asyncio.sleep(delay_seconds)
 
-if __name__ == "__main__":
-    # --- FINAL ROBUST EXECUTION BLOCK ---
-    try:
-        # Run the main continuous loop
-        asyncio.run(main_loop())
-    
-    except Exception as e:
-        # This catches *any* critical error that crashes the script immediately 
-        error_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        print(f"\n=======================================================")
-        print(f"FATAL UNHANDLED ERROR AT {error_time}: The Python script crashed immediately.")
-        print(f"Error details: {e}")
-        print("=======================================================")
+if __

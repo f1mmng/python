@@ -1,32 +1,43 @@
-# Use a modern, supported Debian-based image for better compatibility
-FROM python:3.11-slim-bullseye
+# Use a suitable base image (e.g., one with necessary libs for headless browsers)
+# python:3.11-slim-buster is a good, common choice
+FROM python:3.11-slim-buster 
 
-# Set the working directory
+# 1. Install system dependencies for Playwright/Browsers
+#    (These are minimal for Debian-based images)
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        libwoff1 \
+        libharfbuzz-icu7 \
+        libgdk-pixbuf2.0-0 \
+        libcairo2 \
+        libpango-1.0-0 \
+        libatk1.0-0 \
+        libatk-bridge2.0-0 \
+        libcups2 \
+        libgbm1 \
+        libasound2 \
+        libpangocairo-1.0-0 \
+        libnspr4 \
+        libnss3 \
+        libdbus-1-3 \
+        libexpat1 \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# 2. Set the working directory
 WORKDIR /app
 
-# Install your Python dependencies first
+# 3. Copy requirements and install python packages
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# --- CRITICAL FIXES FOR RAILWAY/PLAYWRIGHT ---
-
-# 1. Install all necessary system dependencies for Playwright
-#    This step is the most reliable way to prevent "Stopping Container" errors.
-#    It requires elevated privileges (which RUN provides).
-RUN playwright install-deps
-
-# 2. Install the actual browser binaries (as part of the build, not the start)
-#    This makes the container instantly runnable.
+# 4. Use the playwright CLI to download the browser binaries
+#    This is critical for Playwright to work in a clean container
 RUN playwright install chromium
 
-# 3. Copy your application code
+# 5. Copy your code
 COPY . .
 
-# 4. Set the final command
-#    We use a shell command to ensure the script runs, 
-#    and pipe the Python command's output directly.
-CMD ["bash", "-c", "python main.py"]
-
-# Note: We are now installing browsers during the BUILD phase (RUN),
-# so your Railway Start Command/start.sh is no longer needed.
-# The CMD line handles running the application.
+# 6. Set the command (ensure your script's entry point is fixed, see below)
+CMD ["/bin/bash", "start.sh"] 
+# OR: CMD ["python", "your_script_name.py"]

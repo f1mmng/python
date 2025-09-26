@@ -4,6 +4,9 @@ import json
 from bs4 import BeautifulSoup
 import sys 
 
+# Define the station ID you are interested in
+station_id_to_find = '235'
+
 async def fetch_available_bikes(station_id, url="https://www.velo-antwerpen.be/api/map/stationStatus"):
     """
     Fetches the number of available bikes for a specific station using Playwright.
@@ -13,33 +16,30 @@ async def fetch_available_bikes(station_id, url="https://www.velo-antwerpen.be/a
         
         # Use async_playwright context manager for cleaner resource handling
         async with async_playwright() as p:
-            # Launch Chromium browser. Playwright handles sandboxing args internally,
-            # but we pass '--no-sandbox' for extra robustness in containers.
+            # Launch Chromium browser with necessary args for container environment
             browser = await p.chromium.launch(
                 headless=True,
                 args=['--no-sandbox', '--disable-dev-shm-usage'] 
             )
             
-            page = await browser.newPage()
+            # FIX: Correct Playwright syntax is browser.new_page()
+            page = await browser.new_page() 
 
             await page.set_user_agent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36')
 
-            # Use Playwright's goto. wait_until='domcontentloaded' is still supported.
             await page.goto(url, wait_until='domcontentloaded')
             
-            # The API you're targeting returns JSON, so waiting 15 seconds 
-            # might be unnecessary, but we keep a smaller wait for safety.
+            # Keep a reasonable wait time for full content loading
             await asyncio.sleep(5) 
 
             # Get the page content after JavaScript execution
             content = await page.content()
 
-            # ... (Rest of your original parsing logic remains the same) ...
-            
-            # Parse the HTML content to find the JSON string within the <pre> tag
+            # Parse the content to find and load the JSON
             soup = BeautifulSoup(content, 'html.parser')
             pre_tag = soup.find('pre')
             station_data = None
+            
             if pre_tag:
                 json_string = pre_tag.get_text()
                 try:
@@ -62,21 +62,24 @@ async def fetch_available_bikes(station_id, url="https://www.velo-antwerpen.be/a
                             available_bikes = availability.get('bikes')
                         break
 
-            # The browser will close automatically when exiting the async with block
+            # Browser is automatically closed by the 'async with' block
             return available_bikes
 
     except Exception as e:
+        # Catch and report fatal errors during the fetching process
         print(f"[FATAL ERROR] An error occurred during data fetching: {e}", file=sys.stderr)
         return None
 
 # ---------------------------------------------------------------------
-# Main execution block (no changes needed here)
+# Main execution block
 # ---------------------------------------------------------------------
 async def main():
-    station_id_to_find = '235'
-    
+    """
+    Defines the entry point and execution logic for the script.
+    """
     available_bikes_235 = await fetch_available_bikes(station_id_to_find)
 
+    # Print the final result
     if available_bikes_235 is not None:
         print(f"✅ Available bikes for station {station_id_to_find}: {available_bikes_235}")
     else:

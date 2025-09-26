@@ -18,10 +18,15 @@ async def fetch_available_bikes(station_id, url="https://www.velo-antwerpen.be/a
         # Pyppeteer attempts to find Chromium, but specifying the path is safer.
         # However, for Railway, pyppeteer's auto-download may work if dependencies are met.
         # We will focus on the args first:
-        browser = await launch(
-            headless=True,
-            args=['--no-sandbox', '--disable-setuid-sandbox']
-        )
+       browser = await launch(
+    headless=True,
+    # These args are CRITICAL for running in a non-root, sandboxed environment
+    args=[
+        '--no-sandbox', 
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage' # Important for low-memory environments
+    ]
+)
         page = await browser.newPage()
         # ... (Rest of your original code remains the same)
         await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36')
@@ -73,3 +78,4 @@ async def main():
 # Standard way to run the async main function
 if __name__ == "__main__":
     asyncio.run(main())
+

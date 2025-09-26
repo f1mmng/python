@@ -1,88 +1,78 @@
 import asyncio
-import nest_asyncio
-from pyppeteer import launch
+from playwright.async_api import async_playwright
 import json
-from bs4 import BeautifulSoup
+from datetime import datetime
+import csv
 
-# Apply nest_asyncio to allow running asyncio in Colab
-nest_asyncio.apply()
+csv_file = "velo_data.csv"
 
-async def fetch_available_bikes(station_id, url="https://www.velo-antwerpen.be/api/map/stationStatus"):
+async def fetch_available_bikes_playwright(station_id):
     """
-    Fetches the number of available bikes for a specific station using Pyppeteer.
-
-    Args:
-        station_id: The ID of the station to fetch data for.
-        url: The URL of the station status API.
-
-    Returns:
-        The number of available bikes for the station, or None if the station is not found or data is unavailable.
+    Fetches the number of available bikes and slots for a specific station using Playwright.
+    Returns a tuple: (bikes, slots) or None if not found.
     """
-    browser = None  # Initialize browser to None
-    try:
-        # Launch a headless Chromium browser
-        browser = await launch(headless=True, args=['--no-sandbox', '--disable-setuid-sandbox'])
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=True)
         page = await browser.newPage()
 
-        # Set a realistic User-Agent (optional, can help with some sites)
-        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36')
+        try:
+            # Navigate to the Velo Antwerpen map page
+            await page.goto("https://www.velo-antwerpen.be/nl/fiets-vinden", wait_until="domcontentloaded")
 
-        # print(f"Navigating to {url}...")
-        # Use 'domcontentloaded' or 'load' as 'networkidle0' can sometimes wait indefinitely
-        await page.goto(url, {'waitUntil': 'domcontentloaded'})
+            # Wait for the necessary data to load. This might require inspecting the page's network requests or DOM.
+            # As a starting point, we'll wait for a selector that appears after the data is likely loaded.
+            # You might need to adjust this selector based on the actual page structure.
+            await page.wait_for_selector('div.station-marker', timeout=10000) # Example selector
 
-        # Wait for potential WAF challenges or JavaScript loading
-        # This time might need adjustment based on observation
-        await asyncio.sleep(15)
+            # Extract station data from the page. This might involve evaluating JavaScript
+            # or scraping the DOM based on how the data is presented.
+            # Based on the previous attempt, let's try to access window.__INITIAL_STATE__.stations again.
+            stations_json = await page.evaluate("""
+                () => {
+                    try {
+                        return JSON.stringify(window.__INITIAL_STATE__.stations);
+                    } catch(e) {
+                        return null;
+                    }
+                }
+            """)
 
-        # Get the page content after JavaScript execution
-        content = await page.content()
-
-        # Parse the HTML content to find the JSON string within the <pre> tag
-        soup = BeautifulSoup(content, 'html.parser')
-        pre_tag = soup.find('pre')
-
-        station_data = None
-        if pre_tag:
-            json_string = pre_tag.get_text()
-            try:
-                station_data = json.loads(json_string)
-                # print("Successfully parsed JSON data.")
-            except json.JSONDecodeError:
-                print("Error decoding extracted JSON string.")
+            if not stations_json:
+                print("Could not extract station JSON from page.")
                 return None
-        else:
-            print("Could not find <pre> tag with JSON data in page content.")
+
+            stations = json.loads(stations_json)
+            station = next((s for s in stations if s['id'] == station_id), None)
+
+            if not station:
+                print(f"Station {station_id} not found.")
+                return None
+
+            bikes = station['availability']['bikes']
+            slots = station['availability']['slots']
+
+            # Save to CSV with timestamp
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            with open(csv_file, "a", newline="") as f:
+                writer = csv.writer(f)
+                writer.writerow([timestamp, bikes, slots])
+
+            return bikes, slots
+
+        except Exception as e:
+            print(f"An error occurred during data fetching: {e}")
             return None
-
-        # Find the available bikes for the specific station ID
-        available_bikes = None
-        if station_data:
-            for station in station_data:
-                if station.get('id') == station_id:
-                    # Access availability and bikes using .get() for safety
-                    availability = station.get('availability')
-                    if availability and isinstance(availability, dict):
-                        available_bikes = availability.get('bikes')
-                    break
-
-        return available_bikes
-
-    except Exception as e:
-        print(f"An error occurred during data fetching: {e}")
-        return None
-
-    finally:
-        if browser:
+        finally:
             await browser.close()
 
-# Define the station ID you are interested in
+
+# Define the station ID you want to track
 station_id_to_find = '235'
 
-# Call the async function to fetch data and print the result
-available_bikes_235 = await fetch_available_bikes(station_id_to_find)
+# Fetch data and print result
+available_bikes_slots = await fetch_available_bikes_playwright(station_id_to_find)
 
-if available_bikes_235 is not None:
-    print(f"Available bikes for station {station_id_to_find}: {available_bikes_235}")
+if available_bikes_slots:
+    print(f"Station {station_id_to_find} - Bikes: {available_bikes_slots[0]}, Slots: {available_bikes_slots[1]}")
 else:
     print(f"Could not retrieve available bikes for station {station_id_to_find}.")

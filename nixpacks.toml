@@ -1,0 +1,8 @@
+# Tell Railway's build system to install extra packages
+[phases.setup]
+aptPkgs = ["libnss3", "libxss1", "libasound2", "libdbus-glib-1-2", "xvfb"]
+
+# Tell Playwright not to download browsers during the build, 
+# as the 'playwright install' command will handle it.
+[variables]
+PLAYWRIGHT_BROWSERS_PATH = "0"

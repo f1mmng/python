@@ -66,50 +66,11 @@ async def fetch_available_bikes(station_id, url):
                 await browser.close()
                 print("Browser closed successfully.")
 
-async def main_loop():
-    """
-    The main continuous loop to fetch bike data at a defined interval.
-    """
-    delay_seconds = CHECK_INTERVAL_MINUTES * 60
-
-    # 🌟 START MESSAGE: Confirms Python script is running 🌟
-    print("--- 🚀 SCRIPT INITIATED: Python Code Execution Started Successfully 🚀 ---")
-
-    # Simple confirmation message to ensure script proceeds
-    print("CHECKER STARTED. Entering continuous loop now...")
-
-    while True:
-        try:
-            timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            print(f"\n--- [{timestamp}] Starting data fetch for station {STATION_ID} ---")
-
-            bikes = await fetch_available_bikes(STATION_ID, API_URL)
-
-            if bikes is not None:
-                print(f"SUCCESS: Available bikes for station {STATION_ID}: {bikes}")
-            else:
-                print(f"FAILURE: Could not retrieve available bikes for station {STATION_ID}. Check logs for HTTP Status Code or Timeout error.")
-
-        except Exception as e:
-            # This handles errors within the loop
-            print(f"UNHANDLED ERROR in main loop: {e}")
-
-        finally:
-            # This is the line that will trigger the 30-minute pause
-            print(f"Sleeping for {CHECK_INTERVAL_MINUTES} minutes...")
-            await asyncio.sleep(delay_seconds)
-
-# Line 102 will be the start of this block:
-if __name__ == "__main__":
-    # --- FINAL ROBUST EXECUTION BLOCK ---
-    try:
-        # Run the main continuous loop
-        await main_loop()
-
-    except Exception as e:
-        # This catches *any* critical error that crashes the script immediately
-        error_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        print(f"\n=======================================================")
-        print(f"FATAL UNHANDLED ERROR AT {error_time}: The Python script crashed immediately.")
-        print(f"Error details: {e}")
-        print("=======================================================")
+# Note: To run this script, you would typically add a main execution block like the one below.
+# async def main():
+#     bikes = await fetch_available_bikes(STATION_ID, API_URL)
+#     if bikes is not None:
+#         print(f"Bikes available at station {STATION_ID}: {bikes}")
+#
+# if __name__ == "__main__":
+#     asyncio.run(main())

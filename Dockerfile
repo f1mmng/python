@@ -1,11 +1,11 @@
-# Use a suitable base image (e.g., one with necessary libs for headless browsers)
-# python:3.11-slim-buster is a good, common choice
+# Use a lightweight but stable base image
 FROM python:3.11-slim-buster 
 
-# 1. Install system dependencies for Playwright/Browsers
-#    (These are minimal for Debian-based images)
+# 1. Install necessary system packages for Playwright/Chromium
+# These are essential dependencies for the headless browser to run.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
+        # Dependencies for Chromium
         libwoff1 \
         libharfbuzz-icu7 \
         libgdk-pixbuf2.0-0 \
@@ -27,17 +27,20 @@ RUN apt-get update \
 # 2. Set the working directory
 WORKDIR /app
 
-# 3. Copy requirements and install python packages
+# 3. Copy and install Python packages
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# 4. Use the playwright CLI to download the browser binaries
-#    This is critical for Playwright to work in a clean container
+# 4. CRITICAL: Use the playwright CLI to download the browser binaries inside the container
+# This ensures the required browser version is available for Playwright.
 RUN playwright install chromium
 
-# 5. Copy your code
-COPY . .
+# 5. Copy your application code
+COPY main.py .
+COPY start.sh .
 
-# 6. Set the command (ensure your script's entry point is fixed, see below)
-CMD ["/bin/bash", "start.sh"] 
-# OR: CMD ["python", "your_script_name.py"]
+# 6. Set execute permissions for the startup script
+RUN chmod +x start.sh
+
+# 7. Use the startup script as the default command
+CMD ["/bin/bash", "start.sh"]

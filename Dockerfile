@@ -1,22 +1,24 @@
-# Use the stable 'bullseye' (Debian 11) base image
-# This resolves the outdated repository error.
+# Use the stable 'bullseye' (Debian 11) base image. 
+# This resolves the repository issue and provides modern packages.
 FROM python:3.11-slim-bullseye 
 
-# 1. Install necessary system packages for Playwright/Chromium
+# 1. Install necessary system packages for Playwright/Chromium.
 # These dependencies are required for the headless browser to run.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
+        # Core rendering dependencies
         libwoff1 \
-        libharfbuzz-icu7 \
-        libgdk-pixbuf2.0-0 \
+        libharfbuzz-icu0 \
         libcairo2 \
         libpango-1.0-0 \
+        libpangocairo-1.0-0 \
+        # General UI/Browser dependencies
+        libgdk-pixbuf2.0-0 \
         libatk1.0-0 \
         libatk-bridge2.0-0 \
         libcups2 \
         libgbm1 \
         libasound2 \
-        libpangocairo-1.0-0 \
         libnspr4 \
         libnss3 \
         libdbus-1-3 \
@@ -28,18 +30,21 @@ RUN apt-get update \
 WORKDIR /app
 
 # 3. Copy and install Python packages
+# Ensure you have 'playwright' and 'beautifulsoup4' in requirements.txt
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# 4. CRITICAL: Download the browser binaries inside the container
+# 4. CRITICAL: Download the browser binaries (Chromium) inside the container
+# This ensures Playwright can find the executable.
 RUN playwright install chromium
 
 # 5. Copy your application code and startup script
+# Ensure main.py and start.sh are in the same directory as the Dockerfile
 COPY main.py .
 COPY start.sh .
 
 # 6. Set execute permissions for the startup script
 RUN chmod +x start.sh
 
-# 7. Use the startup script as the default command
+# 7. Use the startup script as the default command for the cron job
 CMD ["/bin/bash", "start.sh"]

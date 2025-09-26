@@ -1,7 +1,10 @@
 #!/bin/bash
 
-# Explicitly run the Playwright installation
+# 1. Install all necessary browser binaries
+echo "--- Starting Playwright Browser Installation ---"
 playwright install
 
-# Run your Python application
-python main.py
+# 2. Run the main Python application
+echo "--- Starting Python Main Script ---"
+# Use exec to ensure the container uses the python process as its primary process
+exec python main.py

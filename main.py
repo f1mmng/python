@@ -75,7 +75,7 @@ async def main_loop():
     # 🌟 START MESSAGE: Confirms Python script is running 🌟
     print("--- 🚀 SCRIPT INITIATED: Python Code Execution Started Successfully 🚀 ---")
     
-    # FINAL FIX: Simple, non-failing confirmation message to ensure script proceeds
+    # Simple confirmation message to ensure script proceeds
     print("CHECKER STARTED. Entering continuous loop now...")
     
     while True:
@@ -95,8 +95,21 @@ async def main_loop():
             print(f"UNHANDLED ERROR in main loop: {e}") 
             
         finally:
-            # This is the line that caused the delay (now it's confirmed to run!)
+            # This is the line that will trigger the 30-minute pause
             print(f"Sleeping for {CHECK_INTERVAL_MINUTES} minutes...")
             await asyncio.sleep(delay_seconds)
 
-if __
+# Line 102 will be the start of this block:
+if __name__ == "__main__":
+    # --- FINAL ROBUST EXECUTION BLOCK ---
+    try:
+        # Run the main continuous loop
+        asyncio.run(main_loop())
+    
+    except Exception as e:
+        # This catches *any* critical error that crashes the script immediately 
+        error_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        print(f"\n=======================================================")
+        print(f"FATAL UNHANDLED ERROR AT {error_time}: The Python script crashed immediately.")
+        print(f"Error details: {e}")
+        print("=======================================================")

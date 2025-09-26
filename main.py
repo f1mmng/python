@@ -11,6 +11,7 @@ async def fetch_available_bikes(station_id, url="https://www.velo-antwerpen.be/a
     """
     Fetches the number of available bikes for a specific station using Playwright.
     """
+    browser = None
     try:
         print(f"[INFO] Launching Chromium to fetch data for station {station_id}...")
         
@@ -22,15 +23,20 @@ async def fetch_available_bikes(station_id, url="https://www.velo-antwerpen.be/a
                 args=['--no-sandbox', '--disable-dev-shm-usage'] 
             )
             
-            # FIX: Correct Playwright syntax is browser.new_page()
+            # Create a new page
             page = await browser.new_page() 
 
-            await page.set_user_agent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36')
+            # FIX 1: Use set_extra_http_headers for setting User-Agent
+            await page.set_extra_http_headers({
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            })
 
+            # Navigate to the URL
             await page.goto(url, wait_until='domcontentloaded')
             
-            # Keep a reasonable wait time for full content loading
-            await asyncio.sleep(5) 
+            # FIX 2: Replace asyncio.sleep(5) with a robust wait for the <pre> tag
+            # Wait for the element containing the JSON to be present in the DOM
+            await page.wait_for_selector('pre', timeout=30000) # Waits up to 30 seconds
 
             # Get the page content after JavaScript execution
             content = await page.content()
@@ -56,7 +62,8 @@ async def fetch_available_bikes(station_id, url="https://www.velo-antwerpen.be/a
             available_bikes = None
             if station_data:
                 for station in station_data:
-                    if station.get('id') == station_id:
+                    # Note: station_id_to_find is a string, get('id') usually returns string
+                    if str(station.get('id')) == str(station_id): 
                         availability = station.get('availability')
                         if availability and isinstance(availability, dict):
                             available_bikes = availability.get('bikes')
@@ -79,7 +86,6 @@ async def main():
     """
     available_bikes_235 = await fetch_available_bikes(station_id_to_find)
 
-    # Print the final result
     if available_bikes_235 is not None:
         print(f"✅ Available bikes for station {station_id_to_find}: {available_bikes_235}")
     else:

@@ -1,9 +1,8 @@
 # Use the stable 'bullseye' (Debian 11) base image. 
-# This resolves the repository issue and provides modern packages.
 FROM python:3.11-slim-bullseye 
 
 # 1. Install necessary system packages for Playwright/Chromium.
-# These dependencies are required for the headless browser to run.
+# This list now includes the missing dependencies from the Playwright warning (libxkbcommon0, etc.).
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         # Core rendering dependencies
@@ -23,6 +22,13 @@ RUN apt-get update \
         libnss3 \
         libdbus-1-3 \
         libexpat1 \
+        # === NEW DEPENDENCIES FROM WARNING ===
+        libxkbcommon0 \
+        libxcomposite1 \
+        libxdamage1 \
+        libxfixes3 \
+        libxrandr2 \
+        # =====================================
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -30,16 +36,13 @@ RUN apt-get update \
 WORKDIR /app
 
 # 3. Copy and install Python packages
-# Ensure you have 'playwright' and 'beautifulsoup4' in requirements.txt
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # 4. CRITICAL: Download the browser binaries (Chromium) inside the container
-# This ensures Playwright can find the executable.
 RUN playwright install chromium
 
 # 5. Copy your application code and startup script
-# Ensure main.py and start.sh are in the same directory as the Dockerfile
 COPY main.py .
 COPY start.sh .
 

@@ -1,7 +1,26 @@
 [packages]
+# These are the required system dependencies for Playwright (Chromium/Webkit) on Debian/Ubuntu-based containers.
+# We must ensure all shared libraries (lib*.so) are covered by these packages.
 apt = [
-  "libgtk-3-0",
-  "libnss3",
-  "libasound2",
-  "libxss1"
+  "libglib2.0-0",         # Provides libglib-2.0.so.0, libgio-2.0.so.0, libgobject-2.0.so.0
+  "libnspr4",             # Provides libnspr4.so
+  "libnss3",              # Provides libnss3.so, libnssutil3.so, libsmime3.so 
+  "libdbus-1-3",          # Provides libdbus-1.so.3
+  "libatk1.0-0",          # Provides libatk-1.0.so.0
+  "libatk-bridge2.0-0",   # Provides libatk-bridge-2.0.so.0
+  "libcups2",             # Provides libcups.so.2 (Sometimes required)
+  "libexpat1",            # Provides libexpat.so.1
+  "libxcb1",              # Provides libxcb.so.1
+  "libxkbcommon0",        # Provides libxkbcommon.so.0
+  "libatspi2.0-0",        # Provides libatspi.so.0
+  "libx11-6",             # Provides libX11.so.6
+  "libxcomposite1",       # Provides libXcomposite.so.1
+  "libxdamage1",          # Provides libXdamage.so.1
+  "libxext6",             # Provides libXext.so.6
+  "libxfixes3",           # Provides libXfixes.so.3
+  "libxrandr2",           # Provides libXrandr.so.2
+  "libgbm1",              # Provides libgbm.so.1 (Used for hardware acceleration emulation)
+  "libcairo2",            # Provides libcairo.so.2
+  "libpango-1.0-0",       # Provides libpango-1.0.so.0
+  "libasound2"            # Provides libasound.so.2
 ]

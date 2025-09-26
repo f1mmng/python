@@ -1,76 +1,88 @@
 import asyncio
-from playwright.async_api import async_playwright
+import nest_asyncio
+from pyppeteer import launch
 import json
-import datetime
+from bs4 import BeautifulSoup
 
-# --- Configuration ---
-STATION_ID = "235"
-API_URL = "https://www.velo-antwerpen.be/api/map/stationStatus"
-CHECK_INTERVAL_MINUTES = 30
-# Set a short, explicit timeout for the page load (15 seconds)
-PAGE_LOAD_TIMEOUT_MS = 15000
-# ---------------------
+# Apply nest_asyncio to allow running asyncio in Colab
+nest_asyncio.apply()
 
-async def fetch_available_bikes(station_id, url):
+async def fetch_available_bikes(station_id, url="https://www.velo-antwerpen.be/api/map/stationStatus"):
     """
-    Fetches the number of available bikes for a specific station using Playwright.
+    Fetches the number of available bikes for a specific station using Pyppeteer.
+
+    Args:
+        station_id: The ID of the station to fetch data for.
+        url: The URL of the station status API.
+
+    Returns:
+        The number of available bikes for the station, or None if the station is not found or data is unavailable.
     """
-    browser = None
-    async with async_playwright() as p:
-        try:
-            # 1. Launch Browser
-            browser = await p.chromium.launch(headless=True)
-            page = await browser.new_page()
+    browser = None  # Initialize browser to None
+    try:
+        # Launch a headless Chromium browser
+        browser = await launch(headless=True, args=['--no-sandbox', '--disable-setuid-sandbox'])
+        page = await browser.newPage()
 
-            # 2. Set realistic headers
-            await page.set_extra_http_headers({
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
-                "Accept": "application/json, text/plain, */*",
-                "Accept-Language": "en-US,en;q=0.9",
-                "Referer": "https://www.velo-antwerpen.be/",
-                "Connection": "keep-alive"
-            })
+        # Set a realistic User-Agent (optional, can help with some sites)
+        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36')
 
-            # 3. Fetch the API data with an explicit timeout
-            response = await page.goto(
-                url,
-                wait_until="domcontentloaded",
-                timeout=PAGE_LOAD_TIMEOUT_MS
-            )
+        # print(f"Navigating to {url}...")
+        # Use 'domcontentloaded' or 'load' as 'networkidle0' can sometimes wait indefinitely
+        await page.goto(url, {'waitUntil': 'domcontentloaded'})
 
-            status_code = response.status
-            print(f"HTTP Status Code Received: {status_code}")
+        # Wait for potential WAF challenges or JavaScript loading
+        # This time might need adjustment based on observation
+        await asyncio.sleep(15)
 
-            if status_code != 200:
-                print(f"ERROR: Server returned status code {status_code}. Cannot fetch data.")
-                error_content = await response.text()
-                print(f"Server Response Preview: {error_content[:500]}...")
+        # Get the page content after JavaScript execution
+        content = await page.content()
+
+        # Parse the HTML content to find the JSON string within the <pre> tag
+        soup = BeautifulSoup(content, 'html.parser')
+        pre_tag = soup.find('pre')
+
+        station_data = None
+        if pre_tag:
+            json_string = pre_tag.get_text()
+            try:
+                station_data = json.loads(json_string)
+                # print("Successfully parsed JSON data.")
+            except json.JSONDecodeError:
+                print("Error decoding extracted JSON string.")
                 return None
+        else:
+            print("Could not find <pre> tag with JSON data in page content.")
+            return None
 
-            # 4. Parse JSON Data
-            station_data = await response.json()
-
-            # 5. Find the target station (ID is a string in the API)
+        # Find the available bikes for the specific station ID
+        available_bikes = None
+        if station_data:
             for station in station_data:
-                if station.get("id") == station_id:
-                    return station.get("availability", {}).get("bikes")
+                if station.get('id') == station_id:
+                    # Access availability and bikes using .get() for safety
+                    availability = station.get('availability')
+                    if availability and isinstance(availability, dict):
+                        available_bikes = availability.get('bikes')
+                    break
 
-            print(f"Station with ID {station_id} not found in the data.")
-            return None
+        return available_bikes
 
-        except Exception as e:
-            print(f"CRITICAL ERROR during fetching: {e}")
-            return None
-        finally:
-            if browser:
-                await browser.close()
-                print("Browser closed successfully.")
+    except Exception as e:
+        print(f"An error occurred during data fetching: {e}")
+        return None
 
-# Note: To run this script, you would typically add a main execution block like the one below.
-# async def main():
-#     bikes = await fetch_available_bikes(STATION_ID, API_URL)
-#     if bikes is not None:
-#         print(f"Bikes available at station {STATION_ID}: {bikes}")
-#
-# if __name__ == "__main__":
-#     asyncio.run(main())
+    finally:
+        if browser:
+            await browser.close()
+
+# Define the station ID you are interested in
+station_id_to_find = '235'
+
+# Call the async function to fetch data and print the result
+available_bikes_235 = await fetch_available_bikes(station_id_to_find)
+
+if available_bikes_235 is not None:
+    print(f"Available bikes for station {station_id_to_find}: {available_bikes_235}")
+else:
+    print(f"Could not retrieve available bikes for station {station_id_to_find}.")

@@ -1,11 +1,11 @@
-# Use a lightweight but stable base image
-FROM python:3.11-slim-buster 
+# Use the stable 'bullseye' (Debian 11) base image
+# This resolves the outdated repository error.
+FROM python:3.11-slim-bullseye 
 
 # 1. Install necessary system packages for Playwright/Chromium
-# These are essential dependencies for the headless browser to run.
+# These dependencies are required for the headless browser to run.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-        # Dependencies for Chromium
         libwoff1 \
         libharfbuzz-icu7 \
         libgdk-pixbuf2.0-0 \
@@ -31,11 +31,10 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# 4. CRITICAL: Use the playwright CLI to download the browser binaries inside the container
-# This ensures the required browser version is available for Playwright.
+# 4. CRITICAL: Download the browser binaries inside the container
 RUN playwright install chromium
 
-# 5. Copy your application code
+# 5. Copy your application code and startup script
 COPY main.py .
 COPY start.sh .
 

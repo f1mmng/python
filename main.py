@@ -1,35 +1,41 @@
 import asyncio
-from playwright.async_api import async_playwright
 import json
+import os
 from datetime import datetime
-import csv
+from playwright.async_api import async_playwright
 
-csv_file = "velo_data.csv"
+# Define the station ID you want to track
+# Use environment variables for configuration flexibility in Railway
+STATION_ID_TO_FIND = os.environ.get('STATION_ID', '235')
+LOG_PREFIX = "[VELO_DATA]" # Used to easily filter data points in Railway logs
 
 async def fetch_available_bikes_playwright(station_id):
     """
     Fetches the number of available bikes and slots for a specific station using Playwright.
     Returns a tuple: (bikes, slots) or None if not found.
     """
-    async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True)
-        page = await browser.newPage()
+    browser = None
+    try:
+        async with async_playwright() as p:
+            # Set arguments for better compatibility in various container environments
+            browser = await p.chromium.launch(
+                headless=True, 
+                args=['--no-sandbox', '--disable-setuid-sandbox']
+            )
+            page = await browser.newPage()
 
-        try:
             # Navigate to the Velo Antwerpen map page
             await page.goto("https://www.velo-antwerpen.be/nl/fiets-vinden", wait_until="domcontentloaded")
 
-            # Wait for the necessary data to load. This might require inspecting the page's network requests or DOM.
-            # As a starting point, we'll wait for a selector that appears after the data is likely loaded.
-            # You might need to adjust this selector based on the actual page structure.
-            await page.wait_for_selector('div.station-marker', timeout=10000) # Example selector
+            # Wait for the necessary data to load (The station markers should confirm the map is ready)
+            # You might need to adjust this selector if the site changes.
+            await page.wait_for_selector('div.station-marker', timeout=15000)
 
-            # Extract station data from the page. This might involve evaluating JavaScript
-            # or scraping the DOM based on how the data is presented.
-            # Based on the previous attempt, let's try to access window.__INITIAL_STATE__.stations again.
+            # Extract station data from the page's initial state object
             stations_json = await page.evaluate("""
                 () => {
                     try {
+                        // Velo Antwerpen often stores data in a window variable like __INITIAL_STATE__
                         return JSON.stringify(window.__INITIAL_STATE__.stations);
                     } catch(e) {
                         return null;
@@ -38,41 +44,35 @@ async def fetch_available_bikes_playwright(station_id):
             """)
 
             if not stations_json:
-                print("Could not extract station JSON from page.")
+                print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] ERROR: Could not extract station JSON from page.")
                 return None
 
             stations = json.loads(stations_json)
+            # Find the specific station
             station = next((s for s in stations if s['id'] == station_id), None)
 
             if not station:
-                print(f"Station {station_id} not found.")
+                print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] ERROR: Station {station_id} not found.")
                 return None
 
             bikes = station['availability']['bikes']
             slots = station['availability']['slots']
-
-            # Save to CSV with timestamp
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            with open(csv_file, "a", newline="") as f:
-                writer = csv.writer(f)
-                writer.writerow([timestamp, bikes, slots])
+
+            # Log the data line to stdout (Railway logs) for persistence
+            # Format: TIMESTAMP,STATION_ID,BIKES,SLOTS
+            print(f"{LOG_PREFIX} {timestamp},{station_id},{bikes},{slots}")
 
             return bikes, slots
 
-        except Exception as e:
-            print(f"An error occurred during data fetching: {e}")
-            return None
-        finally:
+    except Exception as e:
+        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] FATAL ERROR during data fetching: {e}")
+        return None
+    finally:
+        if browser:
             await browser.close()
 
 
-# Define the station ID you want to track
-station_id_to_find = '235'
-
-# Fetch data and print result
-available_bikes_slots = await fetch_available_bikes_playwright(station_id_to_find)
-
-if available_bikes_slots:
-    print(f"Station {station_id_to_find} - Bikes: {available_bikes_slots[0]}, Slots: {available_bikes_slots[1]}")
-else:
-    print(f"Could not retrieve available bikes for station {station_id_to_find}.")
+async def main():
+    """Main function to orchestrate the data fetching."""
+    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] INFO: Starting data fetch for station {STATION_ID_

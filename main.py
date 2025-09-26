@@ -14,6 +14,7 @@ PAGE_LOAD_TIMEOUT_MS = 15000
 async def fetch_available_bikes(station_id, url):
     """
     Fetches the number of available bikes for a specific station using Playwright.
+    Includes robust error checking and mimicking a human browser.
     """
     browser = None
     async with async_playwright() as p:
@@ -35,7 +36,7 @@ async def fetch_available_bikes(station_id, url):
             response = await page.goto(
                 url, 
                 wait_until="domcontentloaded", 
-                timeout=PAGE_LOAD_LOAD_TIMEOUT_MS
+                timeout=PAGE_LOAD_TIMEOUT_MS
             )
             
             status_code = response.status
@@ -50,7 +51,7 @@ async def fetch_available_bikes(station_id, url):
             # 4. Parse JSON Data
             station_data = await response.json()
 
-            # 5. Find the target station
+            # 5. Find the target station (ID is a string in the API)
             for station in station_data:
                 if station.get("id") == station_id:
                     return station.get("availability", {}).get("bikes")
@@ -59,7 +60,8 @@ async def fetch_available_bikes(station_id, url):
             return None
 
         except Exception as e:
-            print(f"CRITICAL ERROR during fetching (likely timeout or connection issue): {e}")
+            # This catches Playwright TimeoutError or connection issues
+            print(f"CRITICAL ERROR during fetching: {e}")
             return None
         finally:
             if browser:
@@ -72,7 +74,7 @@ async def main_loop():
     """
     delay_seconds = CHECK_INTERVAL_MINUTES * 60
     
-    # 🌟 NEW START MESSAGE 🌟
+    # 🌟 START MESSAGE: Confirms Python script is running 🌟
     print("--- 🚀 SCRIPT INITIATED: Python Code Execution Started Successfully 🚀 ---")
     
     print(f"Starting Velo Antwerp checker for station {STATION_ID}. Interval: {CHECK_INTERVAL_MINUTES} minutes.")
@@ -90,16 +92,5 @@ async def main_loop():
                 print(f"FAILURE: Could not retrieve available bikes for station {STATION_ID}. Check logs for HTTP Status Code or Timeout error.")
             
         except Exception as e:
-            print(f"UNHANDLED ERROR in main loop: {e}")
-            
-        finally:
-            print(f"Sleeping for {CHECK_INTERVAL_MINUTES} minutes...")
-            await asyncio.sleep(delay_seconds)
-
-if __name__ == "__main__":
-    try:
-        asyncio.run(main_loop())
-    except KeyboardInterrupt:
-        print("Script terminated by user.")
-    except Exception as e:
-        print(f"Fatal error running script: {e}")
+            # Catches unexpected errors that occur outside the fetch function
+            print(f"UN
